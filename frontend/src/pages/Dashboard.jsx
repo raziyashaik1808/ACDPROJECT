@@ -1,150 +1,136 @@
-import { useState } from "react";
-import API from "../services/api";
-import HealthCard from "../components/HealthCard";
-import MachineTable from "../components/MachineTable";
-import AlertCard from "../components/AlertCard";
-import SensorChart from "../components/SensorChart";
+import React from 'react';
+import {
+  IconServer,
+  IconCheckCircle,
+  IconAlertTriangle,
+  IconAlertOctagon,
+  IconSparkles,
+} from '../components/Icons';
+import KpiCard from '../components/KpiCard';
+import FailureRiskChart from '../components/charts/FailureRiskChart';
+import HealthDistributionChart from '../components/charts/HealthDistributionChart';
+import ParameterTrendsChart from '../components/charts/ParameterTrendsChart';
+import FailureRiskAnalyticsChart from '../components/charts/FailureRiskAnalyticsChart';
+import AlertsPanel from '../components/AlertsPanel';
+import MaintenancePanel from '../components/MaintenancePanel';
+import MachineTable from '../components/MachineTable';
+import { useFleet } from '../context/FleetContext';
 
-function Dashboard() {
-  const [machines, setMachines] = useState([]);
-  const [loading, setLoading] = useState(false);
+export default function Dashboard() {
+  const {
+    totalCount,
+    healthyCount,
+    warningCount,
+    criticalCount,
+    refreshFleet,
+    isRefreshing,
+  } = useFleet();
 
-  const sampleData = [
-    {
-      Air_temperature_K: 300,
-      Process_temperature_K: 310,
-      Rotational_speed_rpm: 1500,
-      Torque_Nm: 45,
-      Tool_wear_min: 120,
-    },
-    {
-      Air_temperature_K: 306,
-      Process_temperature_K: 315,
-      Rotational_speed_rpm: 1350,
-      Torque_Nm: 58,
-      Tool_wear_min: 220,
-    },
-    {
-      Air_temperature_K: 302,
-      Process_temperature_K: 311,
-      Rotational_speed_rpm: 1420,
-      Torque_Nm: 52,
-      Tool_wear_min: 180,
-    },
-    {
-      Air_temperature_K: 308,
-      Process_temperature_K: 316,
-      Rotational_speed_rpm: 1300,
-      Torque_Nm: 60,
-      Tool_wear_min: 240,
-    },
-  ];
-
-  const runPredictions = async () => {
-    setLoading(true);
-    try {
-      const results = await Promise.all(
-        sampleData.map((item) => API.post("/predict", item))
-      );
-      setMachines(results.map((res) => res.data));
-    } catch (error) {
-      console.error("Prediction error:", error);
-    }
-    setLoading(false);
-  };
-
-  const healthyCount = machines.filter(
-    (m) => m.health_status === "Healthy"
-  ).length;
-
-  const warningCount = machines.filter(
-    (m) => m.health_status === "Warning"
-  ).length;
-
-  const criticalCount = machines.filter(
-    (m) => m.health_status === "Critical"
-  ).length;
-
-  const alerts = machines.filter(
-    (m) => m.health_status === "Warning" || m.health_status === "Critical"
-  );
+  const healthyPct = totalCount > 0 ? ((healthyCount / totalCount) * 100).toFixed(0) : 0;
+  const warningPct = totalCount > 0 ? ((warningCount / totalCount) * 100).toFixed(0) : 0;
+  const criticalPct = totalCount > 0 ? ((criticalCount / totalCount) * 100).toFixed(0) : 0;
 
   return (
-    <div
-      style={{
-        background: "linear-gradient(135deg, #83afdb, #89a5c9)",
-        minHeight: "100vh",
-        padding: "30px",
-        borderRadius: "10px",
-      }}
-    >
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ marginBottom: "8px", color: "#0f172a" }}>Dashboard</h1>
-        <p style={{ color: "#3d5c87", margin: 0 }}>
-          Monitor machine health, review failure risk, and inspect maintenance
-          alerts.
-        </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* 4 Responsive KPI Cards */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '16px',
+        }}
+        className="kpi-grid"
+      >
+        <KpiCard
+          title="Total Monitored"
+          value={totalCount}
+          subtitle="Continuous telemetry fleet"
+          icon={<IconServer size={20} />}
+          badgeText="Active Fleet"
+          badgeType="info"
+          indicatorColor="var(--primary)"
+        />
+
+        <KpiCard
+          title="Healthy Machines"
+          value={healthyCount}
+          subtitle={`${healthyPct}% of fleet optimal`}
+          icon={<IconCheckCircle size={20} />}
+          badgeText={`${healthyPct}% Optimal`}
+          badgeType="healthy"
+          indicatorColor="var(--status-healthy)"
+        />
+
+        <KpiCard
+          title="Warning Condition"
+          value={warningCount}
+          subtitle={`${warningPct}% approaching thresholds`}
+          icon={<IconAlertTriangle size={20} />}
+          badgeText="Inspect Soon"
+          badgeType="warning"
+          indicatorColor="var(--status-warning)"
+        />
+
+        <KpiCard
+          title="Critical Failures"
+          value={criticalCount}
+          subtitle={criticalCount > 0 ? "Immediate action required" : "Zero active failures"}
+          icon={<IconAlertOctagon size={20} />}
+          badgeText={criticalCount > 0 ? "Action Required" : "Nominal"}
+          badgeType={criticalCount > 0 ? "critical" : "healthy"}
+          indicatorColor="var(--status-critical)"
+        />
       </div>
 
-      <button
-        onClick={runPredictions}
+      {/* Balanced 2-Column Analytics Charts */}
+      <div
         style={{
-          padding: "12px 20px",
-          background: "#2563eb",
-          color: "#fefefe",
-          border: "none",
-          borderRadius: "10px",
-          cursor: "pointer",
-          marginBottom: "24px",
-          fontWeight: "bold",
-          boxShadow: "0 4px 10px rgba(35, 93, 218, 0.25)",
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '20px',
         }}
+        className="charts-grid-row"
       >
-        {loading ? "Running..." : "Run Sample Predictions"}
-      </button>
-
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-        <HealthCard title="Total Machines" value={machines.length} />
-        <HealthCard title="Healthy" value={healthyCount} />
-        <HealthCard title="Warning" value={warningCount} />
-        <HealthCard title="Critical" value={criticalCount} />
+        <FailureRiskChart />
+        <HealthDistributionChart />
       </div>
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: "20px",
-          marginTop: "24px",
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '20px',
         }}
+        className="charts-grid-row"
       >
-        <SensorChart machines={machines} />
-
-        <div
-          style={{
-            background: "#c1a4a4",
-            padding: "20px",
-            borderRadius: "16px",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-          }}
-        >
-          <h2 style={{ marginTop: 0, color: "#0f172a" }}>Recent Alerts</h2>
-
-          {alerts.length === 0 ? (
-            <p style={{ color: "#64748b" }}>
-              No alerts yet. Run predictions first.
-            </p>
-          ) : (
-            alerts.map((machine, index) => (
-              <AlertCard key={index} machine={machine} index={index} />
-            ))
-          )}
-        </div>
+        <ParameterTrendsChart />
+        <FailureRiskAnalyticsChart />
       </div>
 
-      <MachineTable machines={machines} />
+      {/* Recent Alerts Panel */}
+      <AlertsPanel />
+
+      {/* Upcoming Maintenance Tasks Panel */}
+      <MaintenancePanel />
+
+      {/* Machine Data Table */}
+      <MachineTable />
+
+      <style>{`
+        @media (max-width: 1024px) {
+          .kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .charts-grid-row {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 580px) {
+          .kpi-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
-
-export default Dashboard;
