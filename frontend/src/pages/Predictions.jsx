@@ -33,9 +33,10 @@ export default function Predictions() {
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // MongoDB History Audit Trail
-  const [historyTab, setHistoryTab] = useState('predictions'); // 'predictions' | 'anomalies'
+  const [historyTab, setHistoryTab] = useState('predictions'); // 'predictions' | 'anomalies' | 'recommendations'
   const [predHistory, setPredHistory] = useState([]);
   const [anomalyHistory, setAnomalyHistory] = useState([]);
+  const [recHistory, setRecHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const presets = [
@@ -84,9 +85,10 @@ export default function Predictions() {
   const fetchAuditHistory = async () => {
     setLoadingHistory(true);
     try {
-      const [predsRes, anomsRes] = await Promise.allSettled([
+      const [predsRes, anomsRes, recsRes] = await Promise.allSettled([
         API.get('/predictions/history?limit=15'),
         API.get('/anomalies/history?limit=15'),
+        API.get('/recommendations?limit=15'),
       ]);
 
       if (predsRes.status === 'fulfilled' && predsRes.value?.data) {
@@ -95,10 +97,24 @@ export default function Predictions() {
       if (anomsRes.status === 'fulfilled' && anomsRes.value?.data) {
         setAnomalyHistory(anomsRes.value.data || []);
       }
+      if (recsRes.status === 'fulfilled' && recsRes.value?.data) {
+        setRecHistory(recsRes.value.data || []);
+      }
     } catch (err) {
       console.warn('Audit trail load error:', err);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const handleStatusChange = async (recId, newStatus) => {
+    try {
+      await API.put(`/recommendations/${recId}/status`, { status: newStatus });
+      setRecHistory(prev =>
+        prev.map(r => (r.recommendation_id === recId ? { ...r, status: newStatus } : r))
+      );
+    } catch (err) {
+      console.error('Failed to update recommendation status:', err);
     }
   };
 
@@ -138,7 +154,18 @@ export default function Predictions() {
       fetchAuditHistory();
     } catch (err) {
       console.error('Supervised inference error:', err);
-      setError(err?.response?.data?.detail || err.message || 'Inference error');
+      const errData = err?.response?.data;
+      if (errData?.errors && Array.isArray(errData.errors)) {
+        setError(errData.errors.join(' | '));
+      } else if (errData?.detail) {
+        if (typeof errData.detail === 'object') {
+          setError(errData.detail.message || JSON.stringify(errData.detail));
+        } else {
+          setError(errData.detail);
+        }
+      } else {
+        setError(err.message || 'Inference error');
+      }
     } finally {
       setLoading(false);
     }
@@ -159,7 +186,18 @@ export default function Predictions() {
       fetchAuditHistory();
     } catch (err) {
       console.error('Anomaly detection error:', err);
-      setError(err?.response?.data?.detail || err.message || 'Anomaly detection error');
+      const errData = err?.response?.data;
+      if (errData?.errors && Array.isArray(errData.errors)) {
+        setError(errData.errors.join(' | '));
+      } else if (errData?.detail) {
+        if (typeof errData.detail === 'object') {
+          setError(errData.detail.message || JSON.stringify(errData.detail));
+        } else {
+          setError(errData.detail);
+        }
+      } else {
+        setError(err.message || 'Anomaly detection error');
+      }
     } finally {
       setLoading(false);
     }
@@ -398,8 +436,22 @@ export default function Predictions() {
             </div>
 
             {error && (
-              <div style={{ color: 'var(--status-critical)', fontSize: '12px', marginTop: '4px' }}>
-                ⚠️ {error}
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '6px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  fontSize: '12px',
+                  marginTop: '6px',
+                  lineHeight: 1.4,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <IconAlertTriangle size={14} /> Validation & Inference Diagnostic:
+                </div>
+                <div>{error}</div>
               </div>
             )}
           </div>
@@ -538,22 +590,93 @@ export default function Predictions() {
                   </div>
                 </div>
 
-                {/* Prescriptive Recommendation Card */}
-                <div
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid var(--navy-200)',
-                  }}
-                >
-                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--navy-800)', marginBottom: '3px' }}>
-                    Prescriptive Recommendation:
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--navy-700)', lineHeight: 1.4 }}>
-                    {result.recommendation}
-                  </div>
-                </div>
+                {/* Prescriptive / Intelligent Recommendation Card */}
+                {(() => {
+                  const rec = result.intelligent_recommendation;
+                  if (!rec) {
+                    return (
+                      <div
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid var(--navy-200)',
+                        }}
+                      >
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--navy-800)', marginBottom: '3px' }}>
+                          Prescriptive Recommendation:
+                        </div>
+                        <div style={{ fontSize: '12.5px', color: 'var(--navy-700)', lineHeight: 1.4 }}>
+                          {result.recommendation}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const priorityStyles = {
+                    Critical: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', badge: '#fee2e2' },
+                    High: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', badge: '#fef3c7' },
+                    Medium: { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', badge: '#dbeafe' },
+                    Low: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', badge: '#dcfce7' },
+                  };
+                  const pStyle = priorityStyles[rec.priority] || priorityStyles.Low;
+
+                  return (
+                    <div
+                      style={{
+                        padding: '14px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: pStyle.bg,
+                        border: `1px solid ${pStyle.border}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: pStyle.badge,
+                              color: pStyle.text,
+                            }}
+                          >
+                            {rec.priority} Priority
+                          </span>
+                          {rec.recommendation_id && (
+                            <span style={{ fontSize: '10.5px', color: 'var(--navy-500)', fontFamily: 'monospace' }}>
+                              ID: {rec.recommendation_id}
+                            </span>
+                          )}
+                        </div>
+                        {rec.urgency_timeframe && (
+                          <span style={{ fontSize: '11px', color: pStyle.text, fontWeight: 600 }}>
+                            ⏱️ {rec.urgency_timeframe}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: pStyle.text, lineHeight: 1.4, marginBottom: '8px' }}>
+                        {rec.reason}
+                      </div>
+
+                      {rec.actions && rec.actions.length > 0 && (
+                        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${pStyle.border}` }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--navy-700)', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <IconWrench size={13} /> Recommended Maintenance Actions:
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: 'var(--navy-800)', lineHeight: 1.5 }}>
+                            {rec.actions.map((act, actIdx) => (
+                              <li key={actIdx}>{act}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Explainable AI: Feature Contributions (SHAP) */}
                 {result.feature_contributions && (
@@ -802,6 +925,21 @@ export default function Predictions() {
               >
                 Anomalies ({anomalyHistory.length})
               </button>
+              <button
+                onClick={() => setHistoryTab('recommendations')}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--navy-200)',
+                  backgroundColor: historyTab === 'recommendations' ? 'var(--primary)' : '#ffffff',
+                  color: historyTab === 'recommendations' ? '#ffffff' : 'var(--navy-700)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Recommendations ({recHistory.length})
+              </button>
             </div>
 
             <button
@@ -876,7 +1014,7 @@ export default function Predictions() {
               </table>
             </div>
           )
-        ) : (
+        ) : historyTab === 'anomalies' ? (
           /* Anomalies table */
           anomalyHistory.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center', color: 'var(--navy-400)', fontSize: '13px' }}>
@@ -928,6 +1066,117 @@ export default function Predictions() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : (
+          /* Recommendations Table */
+          recHistory.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--navy-400)', fontSize: '13px' }}>
+              No maintenance recommendations recorded in MongoDB yet. Run a prediction to generate intelligent recommendations.
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="pm-table">
+                <thead>
+                  <tr>
+                    <th>Rec ID</th>
+                    <th>Machine</th>
+                    <th>Priority</th>
+                    <th>Primary Reason & Prescribed Actions</th>
+                    <th>Urgency</th>
+                    <th>Status</th>
+                    <th>Update Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recHistory.map((r, i) => {
+                    const priorityClass = (r.priority || 'low').toLowerCase();
+                    return (
+                      <tr key={r.recommendation_id || i}>
+                        <td>
+                          <code style={{ fontSize: '11px', color: 'var(--primary)' }}>
+                            {r.recommendation_id || 'N/A'}
+                          </code>
+                        </td>
+                        <td><strong>{r.machine_id || 'M-14860'}</strong></td>
+                        <td>
+                          <span className={`status-badge ${priorityClass}`}>
+                            {r.priority || 'Low'}
+                          </span>
+                        </td>
+                        <td style={{ maxWidth: '380px' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--navy-900)', fontSize: '12px', marginBottom: '3px' }}>
+                            {r.reason}
+                          </div>
+                          {r.actions && r.actions.length > 0 && (
+                            <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: 'var(--navy-600)' }}>
+                              {r.actions.slice(0, 2).map((act, idx) => (
+                                <li key={idx}>{act}</li>
+                              ))}
+                              {r.actions.length > 2 && (
+                                <li style={{ fontStyle: 'italic' }}>+{r.actions.length - 2} more actions</li>
+                              )}
+                            </ul>
+                          )}
+                        </td>
+                        <td style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--navy-700)' }}>
+                          {r.urgency_timeframe || 'Next maintenance interval'}
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor:
+                                r.status === 'completed'
+                                  ? '#dcfce7'
+                                  : r.status === 'in_progress'
+                                  ? '#fef3c7'
+                                  : r.status === 'dismissed'
+                                  ? '#f1f5f9'
+                                  : '#fee2e2',
+                              color:
+                                r.status === 'completed'
+                                  ? '#166534'
+                                  : r.status === 'in_progress'
+                                  ? '#92400e'
+                                  : r.status === 'dismissed'
+                                  ? '#475569'
+                                  : '#991b1b',
+                            }}
+                          >
+                            {r.status || 'open'}
+                          </span>
+                        </td>
+                        <td>
+                          <select
+                            value={r.status || 'open'}
+                            onChange={(e) => handleStatusChange(r.recommendation_id, e.target.value)}
+                            style={{
+                              fontSize: '11px',
+                              padding: '3px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--navy-300)',
+                              backgroundColor: '#ffffff',
+                              cursor: 'pointer',
+                              color: 'var(--navy-800)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <option value="open">Open</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="dismissed">Dismissed</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
