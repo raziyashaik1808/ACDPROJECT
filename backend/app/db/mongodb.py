@@ -120,13 +120,21 @@ def setup_indexes():
 
     # alerts collection
     db.alerts.create_index([("created_at", DESCENDING)])
+    db.alerts.create_index("alert_id", unique=True)
     db.alerts.create_index("machine_id")
     db.alerts.create_index("status")
+    db.alerts.create_index("severity")
+    db.alerts.create_index("alert_type")
+    db.alerts.create_index([("machine_id", ASCENDING), ("alert_type", ASCENDING), ("status", ASCENDING)])
 
     # maintenance_work_orders collection
     db.maintenance_work_orders.create_index("task_id", unique=True)
+    db.maintenance_work_orders.create_index("work_order_id", sparse=True)
+    db.maintenance_work_orders.create_index([("created_at", DESCENDING)])
     db.maintenance_work_orders.create_index("machine_id")
     db.maintenance_work_orders.create_index("status")
+    db.maintenance_work_orders.create_index("priority")
+    db.maintenance_work_orders.create_index("alert_id")
 
     # dataset_uploads collection
     db.dataset_uploads.create_index([("created_at", DESCENDING)])
