@@ -139,6 +139,13 @@ def setup_indexes():
     # dataset_uploads collection
     db.dataset_uploads.create_index([("created_at", DESCENDING)])
 
+    # maintenance_recommendations collection
+    db.maintenance_recommendations.create_index("recommendation_id", unique=True)
+    db.maintenance_recommendations.create_index("machine_id")
+    db.maintenance_recommendations.create_index("priority")
+    db.maintenance_recommendations.create_index("status")
+    db.maintenance_recommendations.create_index([("created_at", DESCENDING)])
+
 
 def seed_initial_data():
     """Seed baseline fleet and maintenance work orders if collections are empty."""
@@ -466,3 +473,192 @@ def seed_initial_data():
         ]
         db.alerts.insert_many(initial_alerts)
         print("Seeded initial active alerts into MongoDB.")
+
+    # 4. Seed initial maintenance recommendations if empty
+    if db.maintenance_recommendations.count_documents({}) == 0:
+        initial_recommendations = [
+            {
+                "recommendation_id": "REC-1001",
+                "machine_id": "L-47257",
+                "priority": "Critical",
+                "primary_reason": "Extreme cutting tool wear approaching structural insert breakdown",
+                "full_reason": "Extreme cutting tool wear approaching structural insert breakdown; Excessive mechanical load / overstrain (69.2 Nm)",
+                "urgency_timeframe": "Immediate (Halt cycle or address within current shift)",
+                "maintenance_type": "Corrective / Emergency Overhaul",
+                "recommended_actions": [
+                    "Halt spindle cycle and replace cutting insert immediately to prevent tool fracture and workpiece gouging.",
+                    "Inspect toolholder seat and spindle taper for micro-fretting or thermal distortion.",
+                    "Verify workpiece feed rate, depth of cut, and material hardness for mechanical overload.",
+                ],
+                "contributing_factors": [
+                    {
+                        "parameter": "Tool wear [min]",
+                        "observed_value": 246.0,
+                        "threshold": 215.0,
+                        "unit": "min",
+                        "severity": "Critical",
+                        "indicator": "Accumulated tool cut time (246 min) exceeds critical failure boundary (215 min).",
+                    },
+                    {
+                        "parameter": "Torque [Nm]",
+                        "observed_value": 69.2,
+                        "threshold": 62.0,
+                        "unit": "Nm",
+                        "severity": "Critical",
+                        "indicator": "Drive motor torque (69.2 Nm) operates near maximum continuous rating.",
+                    },
+                ],
+                "risk_score": 89.4,
+                "health_status": "Critical",
+                "is_anomaly": True,
+                "anomaly_score": 88.5,
+                "sensor_readings": {
+                    "Air temperature [K]": 308.2,
+                    "Process temperature [K]": 316.5,
+                    "Rotational speed [rpm]": 1260.0,
+                    "Torque [Nm]": 69.2,
+                    "Tool wear [min]": 246.0,
+                },
+                "status": "open",
+                "notes": "Triggered by predictive health evaluation.",
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "recommendation_id": "REC-1002",
+                "machine_id": "L-47230",
+                "priority": "Critical",
+                "primary_reason": "Heat dissipation failure hazard: insufficient cooling delta (9.30 K)",
+                "full_reason": "Heat dissipation failure hazard: insufficient cooling delta (9.30 K); Elevated motor torque (66.5 Nm) observed during standard cycle",
+                "urgency_timeframe": "Immediate (Halt cycle or address within current shift)",
+                "maintenance_type": "Corrective / Emergency Overhaul",
+                "recommended_actions": [
+                    "Inspect coolant circulation pump, clean heat exchanger fins, and check coolant reservoir level.",
+                    "Verify spindle chiller flow rate and purge thermal jacket channels.",
+                    "Inspect spindle drive coupling, gearbox lubrication, and axis guide rails for mechanical binding.",
+                ],
+                "contributing_factors": [
+                    {
+                        "parameter": "Torque [Nm]",
+                        "observed_value": 66.5,
+                        "threshold": 62.0,
+                        "unit": "Nm",
+                        "severity": "Critical",
+                        "indicator": "Drive motor torque (66.5 Nm) operates near maximum continuous rating.",
+                    },
+                    {
+                        "parameter": "Tool wear [min]",
+                        "observed_value": 198.0,
+                        "threshold": 175.0,
+                        "unit": "min",
+                        "severity": "High",
+                        "indicator": "Tool cut time (198 min) is within accelerated flank wear stage.",
+                    },
+                ],
+                "risk_score": 78.5,
+                "health_status": "Critical",
+                "is_anomaly": True,
+                "anomaly_score": 76.0,
+                "sensor_readings": {
+                    "Air temperature [K]": 305.5,
+                    "Process temperature [K]": 314.8,
+                    "Rotational speed [rpm]": 1290.0,
+                    "Torque [Nm]": 66.5,
+                    "Tool wear [min]": 198.0,
+                },
+                "status": "open",
+                "notes": "Generated from live telemetry drift.",
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "recommendation_id": "REC-1003",
+                "machine_id": "M-14865",
+                "priority": "High",
+                "primary_reason": "Extreme cutting tool wear approaching structural insert breakdown",
+                "full_reason": "Extreme cutting tool wear approaching structural insert breakdown; Elevated motor torque (58.0 Nm) observed during standard cycle",
+                "urgency_timeframe": "Within 24 Hours (Prioritize before next production run)",
+                "maintenance_type": "Predictive Preventive Action",
+                "recommended_actions": [
+                    "Halt spindle cycle and replace cutting insert immediately to prevent tool fracture and workpiece gouging.",
+                    "Stage replacement tooling cutter and schedule changeout before the next production shift.",
+                ],
+                "contributing_factors": [
+                    {
+                        "parameter": "Tool wear [min]",
+                        "observed_value": 220.0,
+                        "threshold": 215.0,
+                        "unit": "min",
+                        "severity": "Critical",
+                        "indicator": "Accumulated tool cut time (220 min) exceeds critical failure boundary (215 min).",
+                    },
+                ],
+                "risk_score": 62.5,
+                "health_status": "Warning",
+                "is_anomaly": False,
+                "anomaly_score": 38.0,
+                "sensor_readings": {
+                    "Air temperature [K]": 306.0,
+                    "Process temperature [K]": 315.0,
+                    "Rotational speed [rpm]": 1350.0,
+                    "Torque [Nm]": 58.0,
+                    "Tool wear [min]": 220.0,
+                },
+                "status": "in_progress",
+                "notes": "Technician dispatched for cutter audit.",
+                "created_at": now,
+                "updated_at": now,
+            },
+        ]
+        db.maintenance_recommendations.insert_many(initial_recommendations)
+        print("Seeded initial intelligent maintenance recommendations into MongoDB.")
+
+
+def save_maintenance_recommendation(rec_dict: dict) -> str:
+    """Persist an intelligent maintenance recommendation into MongoDB."""
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    if "created_at" not in rec_dict:
+        rec_dict["created_at"] = now
+    rec_dict["updated_at"] = now
+    rec_id = rec_dict.get("recommendation_id")
+    if rec_id:
+        db.maintenance_recommendations.update_one(
+            {"recommendation_id": rec_id},
+            {"$set": rec_dict},
+            upsert=True,
+        )
+        return rec_id
+    else:
+        res = db.maintenance_recommendations.insert_one(rec_dict)
+        return str(res.inserted_id)
+
+
+def get_maintenance_recommendations(
+    machine_id: str = None,
+    priority: str = None,
+    status: str = None,
+    limit: int = 50,
+) -> list:
+    """Retrieve maintenance recommendations with optional filters."""
+    db = get_db()
+    query = {}
+    if machine_id:
+        query["machine_id"] = machine_id
+    if priority:
+        query["priority"] = priority
+    if status:
+        query["status"] = status
+    cursor = db.maintenance_recommendations.find(query).sort("created_at", DESCENDING).limit(limit)
+    return serialize_docs(cursor)
+
+
+def update_recommendation_status(recommendation_id: str, new_status: str) -> bool:
+    """Update status of a maintenance recommendation."""
+    db = get_db()
+    res = db.maintenance_recommendations.update_one(
+        {"recommendation_id": recommendation_id},
+        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc)}},
+    )
+    return res.matched_count > 0
+

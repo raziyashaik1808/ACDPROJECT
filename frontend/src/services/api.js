@@ -7,4 +7,12 @@ const API = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export const getRecommendations = (params) => API.get("/recommendations", { params });
+export const getRecommendationById = (id) => API.get(`/recommendations/${id}`);
+export const updateRecommendationStatus = (id, status, notes) =>
+  API.put(`/recommendations/${id}/status`, { status, notes });
+export const generateRecommendation = (data) =>
+  API.post("/recommendations/generate", data);
+export const getModelValidationReport = () => API.get("/metrics/validation");
+
 export default API;
