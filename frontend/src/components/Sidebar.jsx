@@ -24,7 +24,7 @@ export default function Sidebar({
   const { alerts, tasks, totalCount, backendOnline, dbStatus } = useFleet();
 
   const pendingTasksCount = tasks.filter(t => t.status !== "Completed").length;
-  const activeAlertsCount = alerts.length;
+  const activeAlertsCount = alerts.filter(a => a.status === 'Active' || a.status === 'In Review' || a.status === 'Investigating' || !a.status).length;
 
   const navItems = [
     {

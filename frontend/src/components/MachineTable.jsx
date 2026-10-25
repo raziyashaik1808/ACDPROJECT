@@ -6,7 +6,9 @@ import {
   IconClock,
   IconAlertTriangle,
   IconCheckCircle,
+  IconDownload,
 } from './Icons';
+import { exportMachinesToCSV } from '../utils/exportUtils';
 import { useFleet } from '../context/FleetContext';
 
 export default function MachineTable() {
@@ -201,6 +203,17 @@ export default function MachineTable() {
             <option value="wear-desc">Sort: Tool Wear</option>
             <option value="id">Sort: Machine ID</option>
           </select>
+
+          {/* Export CSV */}
+          <button
+            onClick={() => exportMachinesToCSV(filteredMachines, `machines_table_${statusFilter.toLowerCase()}`)}
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '12px', padding: '5px 10px' }}
+            title="Export filtered machines table to CSV"
+          >
+            <IconDownload size={13} />
+            Export CSV
+          </button>
         </div>
       </div>
 

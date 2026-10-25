@@ -378,3 +378,53 @@ h1, h2, h3, h4, h5, h6 {
 .animate-pulse {
   animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Print / PDF Export Styling */
+@media print {
+  body, html {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .sidebar,
+  header,
+  .mobile-menu-trigger,
+  .no-print,
+  button,
+  .app-container > aside {
+    display: none !important;
+  }
+
+  .main-wrapper {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .content-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .report-modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .report-modal-container {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    max-height: none !important;
+  }
+
+  .printable-report {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+}
