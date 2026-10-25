@@ -10,7 +10,9 @@ import {
   IconWrench,
   IconHistory,
   IconRefresh,
+  IconDownload,
 } from '../components/Icons';
+import { exportPredictionsToCSV, exportAnomaliesToCSV } from '../utils/exportUtils';
 
 export default function Predictions() {
   const { fleet, setFleet, refreshFleet } = useFleet();
@@ -805,6 +807,22 @@ export default function Predictions() {
             </div>
 
             <button
+              onClick={() => {
+                if (historyTab === 'predictions') {
+                  exportPredictionsToCSV(predHistory);
+                } else {
+                  exportAnomaliesToCSV(anomalyHistory);
+                }
+              }}
+              disabled={(historyTab === 'predictions' ? predHistory.length : anomalyHistory.length) === 0}
+              className="btn btn-secondary btn-sm"
+              title={`Export ${historyTab} to CSV`}
+            >
+              <IconDownload size={13} />
+              Export {historyTab === 'predictions' ? 'Predictions' : 'Anomalies'} CSV
+            </button>
+
+            <button
               onClick={fetchAuditHistory}
               disabled={loadingHistory}
               className="btn btn-secondary btn-sm"
@@ -842,26 +860,34 @@ export default function Predictions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {predHistory.map((p, i) => (
-                    <tr key={p.prediction_id || i}>
-                      <td>
-                        <code style={{ fontSize: '11px', color: 'var(--primary)' }}>
-                          {p.prediction_id || 'N/A'}
-                        </code>
-                      </td>
-                      <td><strong>{p.machine_id || 'M-14860'}</strong></td>
-                      <td>{p.sensor_readings?.Air_temperature_K} K</td>
-                      <td>{p.sensor_readings?.Process_temperature_K} K</td>
-                      <td>{p.sensor_readings?.Rotational_speed_rpm} RPM</td>
-                      <td>{p.sensor_readings?.Torque_Nm} Nm</td>
-                      <td>{p.sensor_readings?.Tool_wear_min} min</td>
-                      <td>
-                        <strong style={{
-                          color: (p.risk_score || 0) > 70 ? 'var(--status-critical)' : (p.risk_score || 0) > 30 ? 'var(--status-warning)' : 'var(--status-healthy)'
-                        }}>
-                          {(p.risk_score || 0).toFixed(1)}%
-                        </strong>
-                      </td>
+                  {predHistory.map((p, i) => {
+                    const feat = p.input_features || p.sensor_readings || p;
+                    const air = feat["Air temperature [K]"] ?? feat.Air_temperature_K ?? '—';
+                    const proc = feat["Process temperature [K]"] ?? feat.Process_temperature_K ?? '—';
+                    const rpm = feat["Rotational speed [rpm]"] ?? feat.Rotational_speed_rpm ?? '—';
+                    const torque = feat["Torque [Nm]"] ?? feat.Torque_Nm ?? '—';
+                    const wear = feat["Tool wear [min]"] ?? feat.Tool_wear_min ?? '—';
+
+                    return (
+                      <tr key={p.prediction_id || i}>
+                        <td>
+                          <code style={{ fontSize: '11px', color: 'var(--primary)' }}>
+                            {p.prediction_id || 'N/A'}
+                          </code>
+                        </td>
+                        <td><strong>{p.machine_id || 'M-14860'}</strong></td>
+                        <td>{typeof air === 'number' ? `${air.toFixed(1)} K` : air}</td>
+                        <td>{typeof proc === 'number' ? `${proc.toFixed(1)} K` : proc}</td>
+                        <td>{typeof rpm === 'number' ? `${Math.round(rpm)} RPM` : rpm}</td>
+                        <td>{typeof torque === 'number' ? `${torque.toFixed(1)} Nm` : torque}</td>
+                        <td>{typeof wear === 'number' ? `${Math.round(wear)} min` : wear}</td>
+                        <td>
+                          <strong style={{
+                            color: (p.risk_score || 0) > 70 ? 'var(--status-critical)' : (p.risk_score || 0) > 30 ? 'var(--status-warning)' : 'var(--status-healthy)'
+                          }}>
+                            {(p.risk_score || 0).toFixed(1)}%
+                          </strong>
+                        </td>
                       <td>
                         <span className={`status-badge ${(p.health_status || 'healthy').toLowerCase()}`}>
                           {p.health_status || 'Healthy'}
@@ -871,7 +897,8 @@ export default function Predictions() {
                         {p.created_at ? new Date(p.created_at).toLocaleTimeString() : 'N/A'}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

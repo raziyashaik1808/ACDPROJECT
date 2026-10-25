@@ -9,7 +9,9 @@ import {
   IconAlertTriangle,
   IconAlertOctagon,
   IconFilter,
+  IconDownload,
 } from '../components/Icons';
+import { exportMachinesToCSV } from '../utils/exportUtils';
 
 export default function Machines() {
   const { fleet, setSelectedMachine, healthyCount, warningCount, criticalCount } = useFleet();
@@ -106,6 +108,16 @@ export default function Machines() {
                 }}
               />
             </div>
+
+            {/* Export CSV */}
+            <button
+              onClick={() => exportMachinesToCSV(filtered, `machines_${filterStatus.toLowerCase()}`)}
+              className="btn btn-secondary btn-sm"
+              title="Export filtered machines to CSV"
+            >
+              <IconDownload size={14} />
+              Export CSV
+            </button>
           </div>
         </div>
 
@@ -150,8 +162,25 @@ export default function Machines() {
         </div>
       </div>
 
-      {/* Grid View */}
-      {viewMode === 'grid' ? (
+      {/* Grid or Table or Empty View */}
+      {filtered.length === 0 ? (
+        <div className="pm-card" style={{ padding: '48px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔍</div>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--navy-900)' }}>
+            No Matching Equipment Units Found
+          </h3>
+          <p style={{ fontSize: '12.5px', color: 'var(--navy-500)', marginTop: '4px' }}>
+            No machines match the active filter criteria. Try resetting your search query or status filter.
+          </p>
+          <button
+            onClick={() => { setFilterStatus('ALL'); setSearchTerm(''); }}
+            className="btn btn-secondary btn-sm"
+            style={{ marginTop: '14px' }}
+          >
+            Clear Filters
+          </button>
+        </div>
+      ) : viewMode === 'grid' ? (
         <div
           style={{
             display: 'grid',
