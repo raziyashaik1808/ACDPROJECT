@@ -311,8 +311,8 @@ export function FleetProvider({ children }) {
         setTasks(tasksRes.data.map(formatTaskDoc));
       }
 
-      // 4. Fetch Active Alerts from MongoDB
-      const alertsRes = await API.get('/alerts?status=Active');
+      // 4. Fetch Alerts from MongoDB
+      const alertsRes = await API.get('/alerts?limit=100');
       if (Array.isArray(alertsRes.data)) {
         setAlerts(alertsRes.data.map(formatAlertDoc));
       }
@@ -365,7 +365,7 @@ export function FleetProvider({ children }) {
 
     // Reload alerts and tasks from MongoDB since batch upload created persistent records
     try {
-      const alertsRes = await API.get('/alerts?status=Active');
+      const alertsRes = await API.get('/alerts?limit=100');
       if (Array.isArray(alertsRes.data)) {
         setAlerts(alertsRes.data.map(formatAlertDoc));
       }
@@ -397,6 +397,20 @@ export function FleetProvider({ children }) {
     }
   };
 
+  // Persist alert status update to MongoDB (Active, In Review, Investigating, Resolved)
+  const updateAlertStatus = async (alertId, newStatus) => {
+    // Optimistic UI update
+    setAlerts(prev =>
+      prev.map(a => (a.id === alertId || a.alert_id === alertId ? { ...a, status: newStatus } : a))
+    );
+
+    try {
+      await API.put(`/alerts/${alertId}/status`, { status: newStatus });
+    } catch (err) {
+      console.error("Failed to update alert status in MongoDB:", err);
+    }
+  };
+
   // Persist new work order to MongoDB
   const addTask = async (newTask) => {
     try {
@@ -410,18 +424,32 @@ export function FleetProvider({ children }) {
       const res = await API.post('/maintenance/tasks', payload);
       const savedTask = formatTaskDoc(res.data);
       setTasks(prev => [savedTask, ...prev]);
+      return savedTask;
     } catch (err) {
       console.error("Failed to save task to MongoDB:", err);
       // Fallback local addition if network blip
-      setTasks(prev => [
-        {
-          id: `WO-${Math.floor(1000 + Math.random() * 9000)}`,
-          status: "Pending",
-          ...newTask,
-        },
-        ...prev,
-      ]);
+      const fallbackTask = {
+        id: `WO-${Math.floor(1000 + Math.random() * 9000)}`,
+        status: "Pending",
+        ...newTask,
+      };
+      setTasks(prev => [fallbackTask, ...prev]);
+      return fallbackTask;
     }
+  };
+
+  // Convert Alert recommendation directly into a Work Order and advance alert status
+  const createWorkOrderFromAlert = async (alert, assignedTo = "Reliability Specialist", scheduledDate = "Next Shift") => {
+    const taskPayload = {
+      machineId: alert.machine_id,
+      action: alert.recommendation || `Investigate ${alert.reason || 'Telemetry Alert'}`,
+      priority: alert.severity === "Critical" ? "High" : alert.severity === "Warning" ? "Medium" : "Low",
+      scheduledDate: scheduledDate,
+      assignedTo: assignedTo,
+    };
+    const savedTask = await addTask(taskPayload);
+    await updateAlertStatus(alert.alert_id || alert.id, "Investigating");
+    return savedTask;
   };
 
   // Derived counts
@@ -445,6 +473,9 @@ export function FleetProvider({ children }) {
         tasks,
         updateTaskStatus,
         addTask,
+        alerts,
+        updateAlertStatus,
+        createWorkOrderFromAlert,
         selectedMachine,
         setSelectedMachine,
         backendOnline,
@@ -453,7 +484,6 @@ export function FleetProvider({ children }) {
         warningCount,
         criticalCount,
         totalCount,
-        alerts,
         loadDataFromBackend,
       }}
     >

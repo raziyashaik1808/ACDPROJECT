@@ -1,18 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   IconMenu,
   IconRefresh,
   IconDatabase,
   IconClock,
   IconSparkles,
+  IconDownload,
 } from './Icons';
 import { useFleet } from '../context/FleetContext';
+import ExecutiveReportModal from './ExecutiveReportModal';
 
 export default function Header({
   title = "Equipment Health Overview",
   subtitle = "Monitor equipment condition, failure risk, and maintenance activity.",
   onOpenMobileNav,
 }) {
+  const [showReportModal, setShowReportModal] = useState(false);
   const {
     dataSource,
     timeRange,
@@ -211,7 +214,29 @@ export default function Header({
           </span>
           <span className="refresh-label">{isRefreshing ? 'Running...' : 'Refresh'}</span>
         </button>
+
+        {/* Generate PDF / Executive Report Button */}
+        <button
+          onClick={() => setShowReportModal(true)}
+          className="btn btn-primary btn-sm"
+          style={{
+            height: '34px',
+            fontSize: '12px',
+            fontWeight: 600,
+            padding: '0 12px',
+          }}
+          title="Generate Executive Equipment Health Report & PDF"
+        >
+          <span>📄</span>
+          <span className="report-btn-label">Executive Report (PDF)</span>
+        </button>
       </div>
+
+      {/* Report Modal */}
+      <ExecutiveReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      />
 
       <style>{`
         @media (max-width: 1024px) {
@@ -223,6 +248,11 @@ export default function Header({
           }
           .header-source-badge {
             display: none !important;
+          }
+        }
+        @media (max-width: 768px) {
+          .report-btn-label {
+            display: none;
           }
         }
         @media (max-width: 640px) {

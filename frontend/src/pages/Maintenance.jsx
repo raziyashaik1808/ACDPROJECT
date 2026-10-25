@@ -6,13 +6,16 @@ import {
   IconClock,
   IconAlertTriangle,
   IconPlus,
+  IconDownload,
 } from '../components/Icons';
 import KpiCard from '../components/KpiCard';
+import { exportWorkOrdersToCSV } from '../utils/exportUtils';
 
 export default function Maintenance() {
   const { tasks, updateTaskStatus, addTask, fleet } = useFleet();
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
+  const [machineFilter, setMachineFilter] = useState('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // New task form state
@@ -32,6 +35,7 @@ export default function Maintenance() {
   const filteredTasks = tasks.filter(t => {
     if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
     if (priorityFilter !== 'ALL' && t.priority.toLowerCase() !== priorityFilter.toLowerCase()) return false;
+    if (machineFilter !== 'ALL' && (t.machineId || t.machine_id) !== machineFilter) return false;
     return true;
   });
 
@@ -187,6 +191,41 @@ export default function Maintenance() {
                 </button>
               ))}
             </div>
+
+            {/* Machine Filter Dropdown */}
+            <select
+              value={machineFilter}
+              onChange={(e) => setMachineFilter(e.target.value)}
+              style={{
+                padding: '5px 8px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--navy-200)',
+                backgroundColor: '#ffffff',
+                fontSize: '12px',
+                color: 'var(--navy-700)',
+                fontWeight: 500,
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="ALL">All Machines</option>
+              {fleet.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id}
+                </option>
+              ))}
+            </select>
+
+            {/* Export CSV */}
+            <button
+              onClick={() => exportWorkOrdersToCSV(filteredTasks, `work_orders_${statusFilter.toLowerCase()}`)}
+              disabled={filteredTasks.length === 0}
+              className="btn btn-secondary btn-sm"
+              title="Export filtered work orders to CSV"
+            >
+              <IconDownload size={14} />
+              Export CSV
+            </button>
 
             <button
               onClick={() => setShowAddModal(true)}
